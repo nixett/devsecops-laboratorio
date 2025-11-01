@@ -36,8 +36,6 @@ jobs:
                 -d 'project=${{ github.event.repository.name }}'
             fi
             set -e
-            echo "Sleep de 10s para que SonarCloud cree el proyecto"
-            sleep 10
 
         - name: Set up JDK 17
           uses: actions/setup-java@v4
@@ -54,5 +52,8 @@ jobs:
             args: >
               -Dsonar.organization=nixett-devsecops-laboratorio
               -Dsonar.projectKey=${{ github.event.repository.name }}
-              -Dsonar.sources=.
+              -Dsonar.sources=src,functions
+              -Dsonar.tests=src,functions
+              -Dsonar.exclusions=src/**/*.test.tsx,src/**/*.test.ts,functions/**/*.test.ts
+              -Dsonar.typescript.tsconfigPath=tsconfig.json
               -Dsonar.host.url=https://sonarcloud.io
