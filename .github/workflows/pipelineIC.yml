@@ -20,23 +20,40 @@ jobs:
             PROJECT_NAME: ${{ github.event.repository.name }}
             ORG_KEY: nixett-devsecops-laboratorio
           run: |
-            echo "Validando si el proyecto $PROJECT_NAME existe en la organización $ORG_KEY..."
-
+            set +e
+            echo "Validando si el proyecto '$PROJECT_NAME' existe en la organización '$ORG_KEY'..."
+            
             RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" "https://sonarcloud.io/api/projects/search?organization=$ORG_KEY&q=$PROJECT_NAME")
-            EXISTE=$(echo "$RESPONSE" | grep -o "\"key\":\"$ORG_KEY_$PROJECT_NAME\"")
-
+            
+            echo "Respuesta de SonarCloud:"
+            echo "$RESPONSE"
+            
+            PROJECT_KEY="${ORG_KEY}_${PROJECT_NAME}"
+            echo "Buscando projectKey esperado: $PROJECT_KEY"
+            
+            EXISTE=$(echo "$RESPONSE" | grep -o "\"key\":\"$PROJECT_KEY\"")
+            
             if [ -n "$EXISTE" ]; then
               echo "Proyecto ya existe en SonarCloud"
               echo "proyectoExiste=1" >> $GITHUB_OUTPUT
             else
-              echo "Creando proyecto $PROJECT_NAME en SonarCloud..."
+              echo "Proyecto no encontrado, creando en SonarCloud..."
               CREATE_RESPONSE=$(curl -s -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/projects/create' \
                 -d "organization=$ORG_KEY" \
-                -d "project=$ORG_KEY_$PROJECT_NAME" \
+                -d "project=$PROJECT_KEY" \
                 -d "name=$PROJECT_NAME" \
                 -d "visibility=public")
+
               echo "Respuesta de creación: $CREATE_RESPONSE"
-              echo "proyectoExiste=0" >> $GITHUB_OUTPUT
+
+              if echo "$CREATE_RESPONSE" | grep -q "\"key\":\"$PROJECT_KEY\""; then
+                echo "Proyecto '$PROJECT_NAME' creado exitosamente."
+                echo "proyectoExiste=0" >> $GITHUB_OUTPUT
+              else
+                echo "Error al crear el proyecto en SonarCloud. Respuesta completa:"
+                echo "$CREATE_RESPONSE"
+                exit 0
+              fi
             fi
 
 
