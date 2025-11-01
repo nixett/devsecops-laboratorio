@@ -2,6 +2,7 @@ name: Workflow
 on:
   push:
     branches:
+      - main
       - feature/*
 
 jobs:
