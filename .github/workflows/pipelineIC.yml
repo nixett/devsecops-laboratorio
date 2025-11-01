@@ -57,3 +57,4 @@ jobs:
               -Dsonar.exclusions=src/**/*.test.tsx,src/**/*.test.ts,functions/**/*.test.ts
               -Dsonar.typescript.tsconfigPath=tsconfig.json
               -Dsonar.host.url=https://sonarcloud.io
+              -X
