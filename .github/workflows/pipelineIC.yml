@@ -18,24 +18,30 @@ jobs:
           env:
             SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           run: |
-            set +e
-            curl -f -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/projects/create' \
+            CURL_OUTPUT=$(curl -s -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/projects/create' \
               -d 'name=${{ github.event.repository.name }}' \
               -d 'project=${{ github.event.repository.name }}' \
               -d 'organization=nixett-devsecops-laboratorio' \
-              -d 'visibility=public'
+              -d 'visibility=public')
             
-            if [ $? -ne 0 ]; then
+            if [[ "$CURL_OUTPUT" == *"already exists"* ]]; then
               echo "Proyecto ya existe en Sonarcloud"
               echo "proyectoExiste=1" >> $GITHUB_OUTPUT
-            else
+            
+            elif [ -z "$CURL_OUTPUT" ]; then
               echo "Proyecto ${{ github.event.repository.name }} creado exitosamente en Sonarcloud"
               echo "Se establece rama main como rama por defecto"
               curl -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/project_branches/rename' \
                 -d 'name=main' \
                 -d 'project=${{ github.event.repository.name }}'
+
+            else
+              echo "ERROR: Error al crear el proyecto en SonarCloud. Respuesta de la API:"
+              echo "$CURL_OUTPUT"
+              echo "Por favor, verifica que tu SONAR_TOKEN tenga permisos de 'Create Projects' en la organización."
+              exit 1 # Fallamos el build intencionalmente
             fi
-            set -e
+
 
         - name: Set up JDK 17
           uses: actions/setup-java@v4
