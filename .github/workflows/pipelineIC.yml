@@ -17,29 +17,26 @@ jobs:
           id: validateProjectOnSonar
           env:
             SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            PROJECT_NAME: ${{ github.event.repository.name }}
+            ORG_KEY: nixett-devsecops-laboratorio
           run: |
-            CURL_OUTPUT=$(curl -s -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/projects/create' \
-              -d 'name=${{ github.event.repository.name }}' \
-              -d 'project=${{ github.event.repository.name }}' \
-              -d 'organization=nixett-devsecops-laboratorio' \
-              -d 'visibility=public')
-            
-            if [[ "$CURL_OUTPUT" == *"already exists"* ]]; then
-              echo "Proyecto ya existe en Sonarcloud"
-              echo "proyectoExiste=1" >> $GITHUB_OUTPUT
-            
-            elif [ -z "$CURL_OUTPUT" ]; then
-              echo "Proyecto ${{ github.event.repository.name }} creado exitosamente en Sonarcloud"
-              echo "Se establece rama main como rama por defecto"
-              curl -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/project_branches/rename' \
-                -d 'name=main' \
-                -d 'project=${{ github.event.repository.name }}'
+            echo "Validando si el proyecto $PROJECT_NAME existe en la organización $ORG_KEY..."
 
+            RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" "https://sonarcloud.io/api/projects/search?organization=$ORG_KEY&q=$PROJECT_NAME")
+            EXISTE=$(echo "$RESPONSE" | grep -o "\"key\":\"$ORG_KEY_$PROJECT_NAME\"")
+
+            if [ -n "$EXISTE" ]; then
+              echo "Proyecto ya existe en SonarCloud"
+              echo "proyectoExiste=1" >> $GITHUB_OUTPUT
             else
-              echo "ERROR: Error al crear el proyecto en SonarCloud. Respuesta de la API:"
-              echo "$CURL_OUTPUT"
-              echo "Por favor, verifica que tu SONAR_TOKEN tenga permisos de 'Create Projects' en la organización."
-              exit 1 # Fallamos el build intencionalmente
+              echo "Creando proyecto $PROJECT_NAME en SonarCloud..."
+              CREATE_RESPONSE=$(curl -s -X POST -u "${SONAR_TOKEN}:" 'https://sonarcloud.io/api/projects/create' \
+                -d "organization=$ORG_KEY" \
+                -d "project=$ORG_KEY_$PROJECT_NAME" \
+                -d "name=$PROJECT_NAME" \
+                -d "visibility=public")
+              echo "Respuesta de creación: $CREATE_RESPONSE"
+              echo "proyectoExiste=0" >> $GITHUB_OUTPUT
             fi
 
 
@@ -57,7 +54,7 @@ jobs:
           with:
             args: >
               -Dsonar.organization=nixett-devsecops-laboratorio
-              -Dsonar.projectKey=${{ github.event.repository.name }}
+              -Dsonar.projectKey=nixett-devsecops-laboratorio_devsecops-laboratorio
               -Dsonar.sources=src,functions
               -Dsonar.tests=src,functions
               -Dsonar.exclusions=src/**/*.test.tsx,src/**/*.test.ts,functions/**/*.test.ts
