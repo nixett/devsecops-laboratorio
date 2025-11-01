@@ -9,9 +9,9 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout del código
-            uses: actions/checkout@v4
+              uses: actions/checkout@v4
 
             - name: PRIMER HOLA MUNDO
-            run: |
+              run: |
                 echo "Hola Mundo desde GitHub Actions"
                 echo "La rama actual es $GITHUB_REF_NAME"
