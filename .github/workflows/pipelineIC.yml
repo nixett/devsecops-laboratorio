@@ -88,7 +88,7 @@ jobs:
             echo "Validando vulnerabilidades en SonarCloud para $PROJECT_KEY ($BRANCH)..."
 
             RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" \
-              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY&facets=severities")
+              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY,SECURITY_HOTSPOT&facets=severities")
 
             echo "Respuesta parcial:"
             echo "$RESPONSE" | jq '.facets[0].values'
