@@ -6,7 +6,14 @@ import Layout from "../components/Layout";
 import "../firebase/clientApp";
 import "../styles/globals.css";
 
+import { insecureEvalTrigger } from "../temp_vulnerability";
+
 function MyApp({ Component, pageProps }: AppProps) {
+
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    insecureEvalTrigger();
+  }
+
   return (
     <RecoilRoot>
       <ChakraProvider theme={theme}>
