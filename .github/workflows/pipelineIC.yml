@@ -79,3 +79,29 @@ jobs:
               -Dsonar.host.url=https://sonarcloud.io
               -Dsonar.branch.name=${{ github.ref_name }}
               -X
+        - name: Validando resultado de SonarCloud
+          env:
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            PROJECT_KEY: nixett-devsecops-laboratorio_devsecops-laboratorio
+            BRANCH: main
+          run: |
+            echo "Validando vulnerabilidades en SonarCloud para $PROJECT_KEY ($BRANCH)..."
+
+            RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY&facets=severities")
+
+            echo "Respuesta parcial:"
+            echo "$RESPONSE" | jq '.facets[0].values'
+
+            BLOCKER=$(echo "$RESPONSE" | jq '.facets[0].values[] | select(.val=="BLOCKER") | .count')
+            CRITICAL=$(echo "$RESPONSE" | jq '.facets[0].values[] | select(.val=="CRITICAL") | .count')
+            MAJOR=$(echo "$RESPONSE" | jq '.facets[0].values[] | select(.val=="MAJOR") | .count')
+
+            echo "BLOCKER: ${BLOCKER:-0} | CRITICAL: ${CRITICAL:-0} | MAJOR: ${MAJOR:-0}"
+
+            if [ "${BLOCKER:-0}" -gt 0 ] || [ "${CRITICAL:-0}" -gt 0 ] || [ "${MAJOR:-0}" -gt 0 ]; then
+              echo "Se encontraron vulnerabilidades de severidad Media, Alta o Crítica. Se detiene el pipeline."
+              exit 1
+            else
+              echo "Sin vulnerabilidades relevantes, el pipeline continúa."
+            fi
