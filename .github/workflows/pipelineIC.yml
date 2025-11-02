@@ -79,3 +79,27 @@ jobs:
               -Dsonar.host.url=https://sonarcloud.io
               -Dsonar.branch.name=${{ github.ref_name }}
               -X
+        - name: Validando resultado de SonarCloud
+          env:
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            PROJECT_KEY: nixett-devsecops-laboratorio_devsecops-laboratorio
+            BRANCH: main
+          run: |
+            echo "Validando vulnerabilidades y hotspots en SonarCloud para $PROJECT_KEY ($BRANCH)..."
+
+            RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY,SECURITY_HOTSPOT")
+
+            echo "Respuesta parcial:"
+            echo "$RESPONSE" | jq '.paging, .total'
+
+            TOTAL_VULN=$(echo "$RESPONSE" | jq '.total // 0')
+
+            echo "Total detectado por SonarCloud: $TOTAL_VULN"
+
+            if [ "$TOTAL_VULN" -gt 0 ]; then
+              echo "Se encontraron vulnerabilidades o hotspots. Deteniendo pipeline."
+              exit 1
+            else
+              echo "No se encontraron vulnerabilidades ni hotspots críticos."
+            fi
