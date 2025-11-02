@@ -85,21 +85,30 @@ jobs:
             echo "=== Archivos en src ==="
             ls -R src
 
-        - name: Validando resultado de SonarCloud
+        - name: Validando vulnerabilidades y hotspots en SonarCloud
           env:
             SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
             PROJECT_KEY: nixett-devsecops-laboratorio_devsecops-laboratorio
             BRANCH: ${{ github.ref_name }}
           run: |
             echo "Validando vulnerabilidades y hotspots en SonarCloud para $PROJECT_KEY ($BRANCH)..."
-            RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" \
-              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY,SECURITY_HOTSPOT")
-            echo "Respuesta parcial:"
-            echo "$RESPONSE" | jq '.paging, .total'
-            TOTAL_VULN=$(echo "$RESPONSE" | jq '.total // 0')
-            echo "Total detectado por SonarCloud: $TOTAL_VULN"
-            if [ "$TOTAL_VULN" -gt 0 ]; then
-              echo "Se encontraron vulnerabilidades o hotspots. Deteniendo pipeline."
+
+            RESPONSE_VULN=$(curl -s -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/issues/search?branch=${BRANCH}&componentKeys=${PROJECT_KEY}&types=VULNERABILITY")
+            TOTAL_VULN=$(echo "$RESPONSE_VULN" | jq '.total // 0')
+
+            RESPONSE_HOTSPOT=$(curl -s -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/hotspots/search?projectKey=${PROJECT_KEY}&branch=${BRANCH}")
+            TOTAL_HOTSPOT=$(echo "$RESPONSE_HOTSPOT" | jq '.paging.total // 0')
+
+            echo "Vulnerabilidades detectadas: $TOTAL_VULN"
+            echo "Hotspots detectados: $TOTAL_HOTSPOT"
+
+            TOTAL=$((TOTAL_VULN + TOTAL_HOTSPOT))
+            echo "Total combinado: $TOTAL"
+
+            if [ "$TOTAL" -gt 0 ]; then
+              echo "Se detectaron vulnerabilidades o hotspots de seguridad en SonarCloud."
               exit 1
             else
               echo "No se encontraron vulnerabilidades ni hotspots críticos."
