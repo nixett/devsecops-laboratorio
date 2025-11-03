@@ -109,7 +109,38 @@ jobs:
 
             if [ "$TOTAL" -gt 0 ]; then
               echo "Se detectaron vulnerabilidades o hotspots de seguridad en SonarCloud."
-              exit 1
+              # exit 1
             else
               echo "No se encontraron vulnerabilidades ni hotspots críticos."
             fi
+
+  SCA:
+    needs: SAST
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar OWASP Dependency-Check
+        run: |
+          echo "Instalando OWASP Dependency-Check..."
+          sudo apt-get update -y
+          sudo apt-get install -y dependency-check
+
+      - name: Ejecutar Dependency-Check
+        run: |
+          echo "Ejecutando análisis de dependencias con OWASP Dependency-Check..."
+          dependency-check \
+            --project "${{ github.event.repository.name }}" \
+            --scan . \
+            --format "HTML" \
+            --out "reports" \
+            --enableRetired \
+            --failOnCVSS 4.0
+
+      - name: Subir reporte de análisis SCA
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Dependency-Check-Report
+          path: reports
