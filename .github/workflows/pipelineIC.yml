@@ -137,12 +137,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.dependency-check
-          key: dependency-check-db
+          key: ${{ runner.os }}-dependency-check-db
 
       - name: Ejecutar Dependency-Check (HTML + JSON)
         run: |
           mkdir -p reports
-          
+
           if [ -d "$HOME/.dependency-check/data" ]; then
             echo "Base de datos encontrada, ejecutando con --noupdate."
             UPDATE_FLAG="--noupdate"
@@ -158,6 +158,7 @@ jobs:
             --out "reports" \
             $UPDATE_FLAG \
             --enableRetired \
+            --nvdApiKey "${{ secrets.NVD_API_KEY }}" \
             --failOnCVSS 4
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
