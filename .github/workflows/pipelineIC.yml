@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Instalar dependencias requeridas
         run: |
@@ -128,9 +128,9 @@ jobs:
 
       - name: Instalar OWASP Dependency-Check CLI
         run: |
-          echo "Instalando OWASP Dependency-Check..."
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.2/dependency-check-10.0.2-release.zip
-          unzip dependency-check-10.0.2-release.zip -d dependency-check
+          echo "Instalando OWASP Dependency-Check 10.0.4..."
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.4/dependency-check-10.0.4-release.zip
+          unzip dependency-check-10.0.4-release.zip -d dependency-check
           chmod +x dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Ejecutar Dependency-Check (HTML + JSON)
@@ -141,6 +141,7 @@ jobs:
             --scan "." \
             --format "ALL" \
             --out "reports" \
+            --noupdate \
             --enableRetired \
             --failOnCVSS 4
 
@@ -153,7 +154,7 @@ jobs:
           if [ ! -f "$REPORT_JSON" ]; then
             echo "No se encontró el reporte JSON en $REPORT_JSON"
             echo "Archivos disponibles:"
-            ls -l reports
+            ls -l reports || true
             exit 1
           fi
 
