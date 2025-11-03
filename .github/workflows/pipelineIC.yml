@@ -143,24 +143,25 @@ jobs:
         run: |
           mkdir -p reports
 
-          if [ -d "$HOME/.dependency-check/data" ]; then
-            echo "Base de datos encontrada, ejecutando con --noupdate."
-            UPDATE_FLAG="--noupdate"
-          else
-            echo "No se encontró base de datos local, ejecutando actualización completa."
-            UPDATE_FLAG=""
-          fi
+          echo "Descargando base de datos NVD local..."
+          curl -L -o dependency-check-data.tgz https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/data.tgz
+          tar -xzf dependency-check-data.tgz
 
-          ./dependency-check/dependency-check/bin/dependency-check.sh \
-            --project "${{ github.event.repository.name }}" \
-            --scan "." \
+          echo "Ejecutando análisis Dependency-Check offline..."
+          dependency-check.sh \
+            --project "MiProyecto" \
+            --scan . \
+            --out ./reports \
             --format "ALL" \
-            --out "reports" \
-            $UPDATE_FLAG \
-            --enableRetired \
-            --nvdApiKey "${{ secrets.NVD_API_KEY }}" \
-            --nvdApiDelay 8000 \
-            --failOnCVSS 4
+            --data ./data \
+            --disableAutoupdate \
+            --noupdate
+
+      - name: Subir reportes como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-reports
+          path: reports/
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
