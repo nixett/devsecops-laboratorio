@@ -121,93 +121,37 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Instalar dependencias requeridas
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq unzip wget
-
-      - name: Instalar OWASP Dependency-Check CLI (v9.0.10)
-        run: |
-          echo "Instalando OWASP Dependency-Check 9.0.10..."
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.10/dependency-check-9.0.10-release.zip
-          unzip dependency-check-9.0.10-release.zip -d dependency-check
-          chmod +x dependency-check/dependency-check/bin/dependency-check.sh
-
-      - name: Cachear base de datos Dependency-Check
-        uses: actions/cache@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ~/.dependency-check
-          key: dependency-check-db-v9-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            dependency-check-db-v9-${{ runner.os }}-
+          node-version: 18
 
-      - name: Probar conexión NVD (debug)
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          echo "Probando conexión NVD..."
-          if [ -z "$NVD_API_KEY" ]; then
-            echo "No se encontró la variable NVD_API_KEY en los secretos del repositorio."
-            exit 1
-          fi
+      - name: Instalar dependencias
+        run: npm install
 
-          curl -s -H "apiKey: $NVD_API_KEY" \
-            "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1" | jq '.' || true
-
-      - name: Ejecutar Dependency-Check
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          mkdir -p reports
-          DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
-          DB_PATH="$HOME/.dependency-check/data"
-          mkdir -p "$DB_PATH"
-
-          echo "Ejecutando OWASP Dependency-Check con API Key y delay extendido..."
-          if [ -z "$NVD_API_KEY" ]; then
-            echo "No se encontró la variable NVD_API_KEY. Ejecutando sin API Key (modo degradado)..."
-            $DC_CMD \
-              --project "${{ github.event.repository.name }}" \
-              --scan "." \
-              --format "ALL" \
-              --out "reports" \
-              --enableRetired \
-              --failOnCVSS 4
-          else
-            echo "API Key detectada. Ejecutando en modo online con delay 120000 ms..."
-            $DC_CMD \
-              --project "${{ github.event.repository.name }}" \
-              --scan "." \
-              --format "ALL" \
-              --out "reports" \
-              --enableRetired \
-              --failOnCVSS 4 \
-              --nvdApiKey "$NVD_API_KEY" \
-              --nvdApiDelay 120000 || {
-                echo "Error actualizando la base NVD, intentando modo offline..."
-                $DC_CMD \
-                  --project "${{ github.event.repository.name }}" \
-                  --scan "." \
-                  --format "ALL" \
-                  --out "reports" \
-                  --enableRetired \
-                  --failOnCVSS 4 \
-                  --noupdate
-              }
-          fi
+      - name: Ejecutar OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@1.1.0
+        with:
+          project: '${{ github.event.repository.name }}'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --failOnCVSS 4
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
+          echo "Analizando vulnerabilidades del reporte JSON..."
+
           REPORT_JSON="reports/dependency-check-report.json"
 
           if [ ! -f "$REPORT_JSON" ]; then
             echo "No se encontró el reporte JSON en $REPORT_JSON"
-            echo "Archivos disponibles:"
-            ls -l reports || true
             exit 1
           fi
 
           COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 4)] | length' "$REPORT_JSON")
+
           echo "Vulnerabilidades con CVSS >= 4 detectadas: $COUNT"
 
           if [ "$COUNT" -gt 0 ]; then
@@ -217,9 +161,9 @@ jobs:
             echo "No se encontraron vulnerabilidades medias, altas o críticas."
           fi
 
-      - name: Subir reportes como artefacto
+      - name: Subir reporte de análisis SCA
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: DependencyCheck-Reports
+          name: Dependency-Check-Report
           path: reports
