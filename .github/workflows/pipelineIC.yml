@@ -121,22 +121,24 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Instalar OWASP Dependency-Check
-        run: |
-          echo "Instalando OWASP Dependency-Check..."
-          sudo apt-get update -y
-          sudo apt-get install -y dependency-check
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-      - name: Ejecutar Dependency-Check
-        run: |
-          echo "Ejecutando análisis de dependencias con OWASP Dependency-Check..."
-          dependency-check \
-            --project "${{ github.event.repository.name }}" \
-            --scan . \
-            --format "HTML" \
-            --out "reports" \
-            --enableRetired \
-            --failOnCVSS 4.0
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@1.1.0
+        with:
+          project: '${{ github.event.repository.name }}'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
+          args: >
+            --failOnCVSS 4
+            --enableRetired
 
       - name: Subir reporte de análisis SCA
         uses: actions/upload-artifact@v4
