@@ -128,9 +128,9 @@ jobs:
 
       - name: Instalar OWASP Dependency-Check CLI
         run: |
-          echo "Instalando OWASP Dependency-Check 10.0.4..."
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.4/dependency-check-10.0.4-release.zip
-          unzip dependency-check-10.0.4-release.zip -d dependency-check
+          echo "Instalando OWASP Dependency-Check 9.0.10..."
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.10/dependency-check-9.0.10-release.zip
+          unzip dependency-check-9.0.10-release.zip -d dependency-check
           chmod +x dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Cachear base de datos Dependency-Check
