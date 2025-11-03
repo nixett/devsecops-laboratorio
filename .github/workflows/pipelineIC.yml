@@ -141,7 +141,22 @@ jobs:
           restore-keys: |
             dependency-check-db-v9-${{ runner.os }}-
 
+      - name: Probar conexión NVD (debug)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "Probando conexión NVD..."
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "No se encontró la variable NVD_API_KEY en los secretos del repositorio."
+            exit 1
+          fi
+
+          curl -s -H "apiKey: $NVD_API_KEY" \
+            "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1" | jq '.' || true
+
       - name: Ejecutar Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mkdir -p reports
           DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
@@ -149,7 +164,7 @@ jobs:
           mkdir -p "$DB_PATH"
 
           echo "Ejecutando OWASP Dependency-Check con API Key y delay extendido..."
-          if [ -z "${{ secrets.NVD_API_KEY }}" ]; then
+          if [ -z "$NVD_API_KEY" ]; then
             echo "No se encontró la variable NVD_API_KEY. Ejecutando sin API Key (modo degradado)..."
             $DC_CMD \
               --project "${{ github.event.repository.name }}" \
@@ -159,7 +174,7 @@ jobs:
               --enableRetired \
               --failOnCVSS 4
           else
-            echo "API Key detectada. Ejecutando en modo online con delay 90000 ms..."
+            echo "API Key detectada. Ejecutando en modo online con delay 120000 ms..."
             $DC_CMD \
               --project "${{ github.event.repository.name }}" \
               --scan "." \
@@ -167,8 +182,8 @@ jobs:
               --out "reports" \
               --enableRetired \
               --failOnCVSS 4 \
-              --nvdApiKey "${{ secrets.NVD_API_KEY }}" \
-              --nvdApiDelay 90000 || {
+              --nvdApiKey "$NVD_API_KEY" \
+              --nvdApiDelay 120000 || {
                 echo "Error actualizando la base NVD, intentando modo offline..."
                 $DC_CMD \
                   --project "${{ github.event.repository.name }}" \
