@@ -133,6 +133,12 @@ jobs:
           unzip dependency-check-10.0.4-release.zip -d dependency-check
           chmod +x dependency-check/dependency-check/bin/dependency-check.sh
 
+      - name: Cachear base de datos Dependency-Check
+        uses: actions/cache@v4
+        with:
+          path: ~/.dependency-check
+          key: dependency-check-db
+
       - name: Ejecutar Dependency-Check (HTML + JSON)
         run: |
           mkdir -p reports
