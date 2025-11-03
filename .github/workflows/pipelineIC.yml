@@ -126,20 +126,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq unzip wget
 
-      - name: Instalar OWASP Dependency-Check CLI (v10.0.4)
+      - name: Instalar OWASP Dependency-Check CLI (v9.0.10)
         run: |
-          echo "Instalando OWASP Dependency-Check 10.0.4..."
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.4/dependency-check-10.0.4-release.zip
-          unzip dependency-check-10.0.4-release.zip -d dependency-check
+          echo "Instalando OWASP Dependency-Check 9.0.10..."
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.10/dependency-check-9.0.10-release.zip
+          unzip dependency-check-9.0.10-release.zip -d dependency-check
           chmod +x dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Cachear base de datos Dependency-Check
         uses: actions/cache@v4
         with:
           path: ~/.dependency-check
-          key: dependency-check-db-v10
+          key: dependency-check-db-v9
 
-      - name: Ejecutar Dependency-Check
+      - name: Ejecutar Dependency-Check (modo offline)
         run: |
           mkdir -p reports
 
@@ -149,7 +149,7 @@ jobs:
             --format "ALL" \
             --out "reports" \
             --enableRetired \
-            --disableNvd \
+            --noupdate \
             --failOnCVSS 4
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
