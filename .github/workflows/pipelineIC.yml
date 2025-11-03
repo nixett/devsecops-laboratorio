@@ -137,46 +137,58 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.dependency-check
-          key: dependency-check-db-v9
+          key: dependency-check-db-v9-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            dependency-check-db-v9-${{ runner.os }}-
 
-      - name: Ejecutar Dependency-Check
+      - name: Ejecutar Dependency-Check (robusto)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
+          set -euo pipefail
           mkdir -p reports
-          DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
+          DC_DIR=./dependency-check/dependency-check
+          DC_CMD="$DC_DIR/bin/dependency-check.sh"
           DB_PATH="$HOME/.dependency-check/data"
 
-          echo "Preparando base de datos local..."
+          echo "DB path: $DB_PATH"
           mkdir -p "$DB_PATH"
 
-          echo "Intentando descargar mirror público de NVD..."
-          wget -q -O "$DB_PATH/nvd-mirror.tar.gz" \
-            https://github.com/evk02/nvd-mirror/releases/latest/download/nvd-data-latest.tar.gz || true
+          # Intentar usar mirror público
+          MIRROR_URL="https://github.com/evk02/nvd-mirror/releases/latest/download/nvd-data-latest.tar.gz"
+          if [ ! -s "$DB_PATH/nvd-mirror.tar.gz" ]; then
+            echo "Intentando descargar mirror público de NVD..."
+            curl -sSL "$MIRROR_URL" -o "$DB_PATH/nvd-mirror.tar.gz" || true
+          fi
 
           if [ -s "$DB_PATH/nvd-mirror.tar.gz" ]; then
-            echo "Extrayendo base de datos NVD..."
-            tar -xzf "$DB_PATH/nvd-mirror.tar.gz" -C "$DB_PATH" 2>/dev/null && VALID_DB=true || VALID_DB=false
-          else
-            VALID_DB=false
+            echo "Mirror encontrado: extrayendo..."
+            tar -xzf "$DB_PATH/nvd-mirror.tar.gz" -C "$DB_PATH" || {
+              echo "Mirror corrupto, borro y forzaré actualización online"
+              rm -f "$DB_PATH/nvd-mirror.tar.gz"
+            }
           fi
 
-          if [ "$VALID_DB" = true ]; then
-            echo "Mirror extraído correctamente — se ejecutará en modo offline (--noupdate)."
-            UPDATE_FLAG="--noupdate"
+          # Si ya hay DB en $DB_PATH, se puede correr en modo --noupdate
+          if [ -d "$DB_PATH" ] && [ "$(ls -A $DB_PATH | wc -l)" -gt 0 ]; then
+            echo "DB local presente -> ejecutando dependency-check en modo --noupdate"
+            "$DC_CMD" --project "${{ github.event.repository.name }}" --scan "." --format "ALL" --out "reports" --enableRetired --noupdate || {
+              echo "Dependency-Check falló aun con DB local. Revisa logs."
+              exit 1
+            }
           else
-            echo "Mirror inválido o corrupto — se ejecutará en modo online con API Key."
-            rm -rf "$DB_PATH"  # limpiar base dañada
-            UPDATE_FLAG="--nvdApiKey ${{ secrets.NVD_API_KEY }} --nvdApiDelay 10000"
+            # No hay DB local -> intentar actualizar online con API key
+            if [ -n "${NVD_API_KEY:-}" ]; then
+              echo "No hay DB local. Ejecutando update online con NVD API Key (delay 30000ms)..."
+              "$DC_CMD" --project "${{ github.event.repository.name }}" --scan "." --format "ALL" --out "reports" --enableRetired --nvdApiKey "${NVD_API_KEY}" --nvdApiDelay 30000 || {
+                echo "Error: Actualización NVD falló incluso con API key. Aumenta delay o revisa API key."
+                exit 1
+              }
+            else
+              echo "No hay DB local ni NVD_API_KEY configurada. No se puede continuar."
+              exit 1
+            fi
           fi
-
-          echo "Ejecutando Dependency-Check..."
-          $DC_CMD \
-            --project "${{ github.event.repository.name }}" \
-            --scan "." \
-            --format "ALL" \
-            --out "reports" \
-            --enableRetired \
-            --failOnCVSS 4 \
-            $UPDATE_FLAG
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
