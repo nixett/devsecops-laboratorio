@@ -134,11 +134,32 @@ jobs:
         with:
           project: '${{ github.event.repository.name }}'
           path: '.'
-          format: 'HTML'
-          out: 'reports'
+          format: 'ALL'
           args: >
-            --failOnCVSS 4
             --enableRetired
+            --failOnCVSS 4
+
+      - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
+        run: |
+          echo "Analizando vulnerabilidades del reporte JSON..."
+
+          REPORT_JSON="reports/dependency-check-report.json"
+
+          if [ ! -f "$REPORT_JSON" ]; then
+            echo "No se encontró el reporte JSON en $REPORT_JSON"
+            exit 1
+          fi
+
+          COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 4)] | length' "$REPORT_JSON")
+
+          echo "Vulnerabilidades con CVSS >= 4 detectadas: $COUNT"
+
+          if [ "$COUNT" -gt 0 ]; then
+            echo "Se encontraron vulnerabilidades medias, altas o críticas. Quebrando el pipeline."
+            exit 1
+          else
+            echo "No se encontraron vulnerabilidades medias, altas o críticas."
+          fi
 
       - name: Subir reporte de análisis SCA
         uses: actions/upload-artifact@v4
