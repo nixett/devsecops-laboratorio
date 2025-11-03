@@ -159,6 +159,7 @@ jobs:
             $UPDATE_FLAG \
             --enableRetired \
             --nvdApiKey "${{ secrets.NVD_API_KEY }}" \
+            --nvdApiDelay 8000 \
             --failOnCVSS 4
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
