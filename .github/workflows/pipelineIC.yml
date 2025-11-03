@@ -144,12 +144,23 @@ jobs:
           mkdir -p reports
           DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
 
-          if [ ! -d "$HOME/.dependency-check/data" ]; then
-            echo "Descargando base de datos NVD local (mirror)..."
+          if [ -d "$HOME/.dependency-check/data" ]; then
+            echo "Base de datos local encontrada — ejecutando sin actualización (offline)."
+            UPDATE_FLAG="--noupdate"
+          else
+            echo "Descargando base de datos NVD desde mirror público..."
             mkdir -p "$HOME/.dependency-check/data"
-            wget -O "$HOME/.dependency-check/data/nvd-mirror.tar.gz" \
-              https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.10/nvd-data-2025-10-28.tar.gz
-            tar -xzf "$HOME/.dependency-check/data/nvd-mirror.tar.gz" -C "$HOME/.dependency-check/data" || echo "No se pudo extraer completamente el mirror."
+            wget -q -O "$HOME/.dependency-check/data/nvd-mirror.tar.gz" \
+              https://github.com/evk02/nvd-mirror/releases/latest/download/nvd-data-latest.tar.gz || true
+
+            if [ -f "$HOME/.dependency-check/data/nvd-mirror.tar.gz" ]; then
+              echo "Extrayendo base de datos local..."
+              tar -xzf "$HOME/.dependency-check/data/nvd-mirror.tar.gz" -C "$HOME/.dependency-check/data" || echo "Error extrayendo mirror, se continuará online."
+              UPDATE_FLAG="--noupdate"
+            else
+              echo "No se pudo descargar el mirror, se ejecutará en modo online (con NVD_API_KEY)."
+              UPDATE_FLAG="--nvdApiKey ${{ secrets.NVD_API_KEY }} --nvdApiDelay 10000"
+            fi
           fi
 
           echo "Ejecutando Dependency-Check..."
@@ -160,7 +171,7 @@ jobs:
             --out "reports" \
             --enableRetired \
             --failOnCVSS 4 \
-            --noupdate
+            $UPDATE_FLAG
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
