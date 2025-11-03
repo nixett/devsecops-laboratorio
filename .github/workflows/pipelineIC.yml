@@ -141,53 +141,44 @@ jobs:
           restore-keys: |
             dependency-check-db-v9-${{ runner.os }}-
 
-      - name: Ejecutar Dependency-Check (robusto)
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      - name: Ejecutar Dependency-Check
         run: |
-          set -euo pipefail
           mkdir -p reports
-          DC_DIR=./dependency-check/dependency-check
-          DC_CMD="$DC_DIR/bin/dependency-check.sh"
+          DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
           DB_PATH="$HOME/.dependency-check/data"
-
-          echo "DB path: $DB_PATH"
           mkdir -p "$DB_PATH"
 
-          # Intentar usar mirror público
-          MIRROR_URL="https://github.com/evk02/nvd-mirror/releases/latest/download/nvd-data-latest.tar.gz"
-          if [ ! -s "$DB_PATH/nvd-mirror.tar.gz" ]; then
-            echo "Intentando descargar mirror público de NVD..."
-            curl -sSL "$MIRROR_URL" -o "$DB_PATH/nvd-mirror.tar.gz" || true
-          fi
-
-          if [ -s "$DB_PATH/nvd-mirror.tar.gz" ]; then
-            echo "Mirror encontrado: extrayendo..."
-            tar -xzf "$DB_PATH/nvd-mirror.tar.gz" -C "$DB_PATH" || {
-              echo "Mirror corrupto, borro y forzaré actualización online"
-              rm -f "$DB_PATH/nvd-mirror.tar.gz"
-            }
-          fi
-
-          # Si ya hay DB en $DB_PATH, se puede correr en modo --noupdate
-          if [ -d "$DB_PATH" ] && [ "$(ls -A $DB_PATH | wc -l)" -gt 0 ]; then
-            echo "DB local presente -> ejecutando dependency-check en modo --noupdate"
-            "$DC_CMD" --project "${{ github.event.repository.name }}" --scan "." --format "ALL" --out "reports" --enableRetired --noupdate || {
-              echo "Dependency-Check falló aun con DB local. Revisa logs."
-              exit 1
-            }
+          echo "Ejecutando OWASP Dependency-Check con API Key y delay extendido..."
+          if [ -z "${{ secrets.NVD_API_KEY }}" ]; then
+            echo "No se encontró la variable NVD_API_KEY. Ejecutando sin API Key (modo degradado)..."
+            $DC_CMD \
+              --project "${{ github.event.repository.name }}" \
+              --scan "." \
+              --format "ALL" \
+              --out "reports" \
+              --enableRetired \
+              --failOnCVSS 4
           else
-            # No hay DB local -> intentar actualizar online con API key
-            if [ -n "${NVD_API_KEY:-}" ]; then
-              echo "No hay DB local. Ejecutando update online con NVD API Key (delay 30000ms)..."
-              "$DC_CMD" --project "${{ github.event.repository.name }}" --scan "." --format "ALL" --out "reports" --enableRetired --nvdApiKey "${NVD_API_KEY}" --nvdApiDelay 30000 || {
-                echo "Error: Actualización NVD falló incluso con API key. Aumenta delay o revisa API key."
-                exit 1
+            echo "API Key detectada. Ejecutando en modo online con delay 90000 ms..."
+            $DC_CMD \
+              --project "${{ github.event.repository.name }}" \
+              --scan "." \
+              --format "ALL" \
+              --out "reports" \
+              --enableRetired \
+              --failOnCVSS 4 \
+              --nvdApiKey "${{ secrets.NVD_API_KEY }}" \
+              --nvdApiDelay 90000 || {
+                echo "Error actualizando la base NVD, intentando modo offline..."
+                $DC_CMD \
+                  --project "${{ github.event.repository.name }}" \
+                  --scan "." \
+                  --format "ALL" \
+                  --out "reports" \
+                  --enableRetired \
+                  --failOnCVSS 4 \
+                  --noupdate
               }
-            else
-              echo "No hay DB local ni NVD_API_KEY configurada. No se puede continuar."
-              exit 1
-            fi
           fi
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
