@@ -139,18 +139,28 @@ jobs:
           path: ~/.dependency-check
           key: dependency-check-db-v9
 
-      - name: Ejecutar Dependency-Check (modo offline)
+      - name: Ejecutar Dependency-Check
         run: |
           mkdir -p reports
+          DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
 
-          ./dependency-check/dependency-check/bin/dependency-check.sh \
+          # Detectar si existe base local
+          if [ -d "$HOME/.dependency-check/data" ]; then
+            echo "Base de datos local encontrada — ejecutando sin actualización."
+            UPDATE_FLAG="--noupdate"
+          else
+            echo "No se encontró base local — ejecutando actualización inicial (online)."
+            UPDATE_FLAG="--nvdApiKey ${{ secrets.NVD_API_KEY }} --nvdApiDelay 6000"
+          fi
+
+          $DC_CMD \
             --project "${{ github.event.repository.name }}" \
             --scan "." \
             --format "ALL" \
             --out "reports" \
             --enableRetired \
-            --noupdate \
-            --failOnCVSS 4
+            --failOnCVSS 4 \
+            $UPDATE_FLAG
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
