@@ -137,36 +137,33 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.dependency-check
-          key: ${{ runner.os }}-dependency-check-db
+          key: dependency-check-db-v9
 
-      - name: Ejecutar Dependency-Check (HTML + JSON)
+      - name: Ejecutar Dependency-Check
         run: |
           mkdir -p reports
 
-          echo "Descargando base de datos NVD local..."
-          curl -L -o dependency-check-data.tgz https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/data.tgz
-          tar -xzf dependency-check-data.tgz
+          DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
 
-          echo "Ejecutando análisis Dependency-Check offline..."
-          dependency-check.sh \
-            --project "MiProyecto" \
-            --scan . \
-            --out ./reports \
+          if [ -d "$HOME/.dependency-check/data" ]; then
+            echo "Base de datos local encontrada — ejecutando sin actualización (offline)."
+            UPDATE_FLAG="--noupdate"
+          else
+            echo "No se encontró base de datos local — ejecutando actualización inicial."
+            UPDATE_FLAG="--nvdApiDelay 6000 --nvdApiKey ${{ secrets.NVD_API_KEY }}"
+          fi
+
+          $DC_CMD \
+            --project "${{ github.event.repository.name }}" \
+            --scan "." \
             --format "ALL" \
-            --data ./data \
-            --disableAutoupdate \
-            --noupdate
-
-      - name: Subir reportes como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-reports
-          path: reports/
+            --out "reports" \
+            --enableRetired \
+            --failOnCVSS 4 \
+            $UPDATE_FLAG
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
-          echo "Analizando vulnerabilidades del reporte JSON..."
-
           REPORT_JSON="reports/dependency-check-report.json"
 
           if [ ! -f "$REPORT_JSON" ]; then
@@ -177,7 +174,6 @@ jobs:
           fi
 
           COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 4)] | length' "$REPORT_JSON")
-
           echo "Vulnerabilidades con CVSS >= 4 detectadas: $COUNT"
 
           if [ "$COUNT" -gt 0 ]; then
