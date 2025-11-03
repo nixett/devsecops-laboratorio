@@ -144,15 +144,15 @@ jobs:
           mkdir -p reports
           DC_CMD=./dependency-check/dependency-check/bin/dependency-check.sh
 
-          # Detectar si existe base local
-          if [ -d "$HOME/.dependency-check/data" ]; then
-            echo "Base de datos local encontrada — ejecutando sin actualización."
-            UPDATE_FLAG="--noupdate"
-          else
-            echo "No se encontró base local — ejecutando actualización inicial (online)."
-            UPDATE_FLAG="--nvdApiKey ${{ secrets.NVD_API_KEY }} --nvdApiDelay 6000"
+          if [ ! -d "$HOME/.dependency-check/data" ]; then
+            echo "Descargando base de datos NVD local (mirror)..."
+            mkdir -p "$HOME/.dependency-check/data"
+            wget -O "$HOME/.dependency-check/data/nvd-mirror.tar.gz" \
+              https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.10/nvd-data-2025-10-28.tar.gz
+            tar -xzf "$HOME/.dependency-check/data/nvd-mirror.tar.gz" -C "$HOME/.dependency-check/data" || echo "No se pudo extraer completamente el mirror."
           fi
 
+          echo "Ejecutando Dependency-Check..."
           $DC_CMD \
             --project "${{ github.event.repository.name }}" \
             --scan "." \
@@ -160,7 +160,7 @@ jobs:
             --out "reports" \
             --enableRetired \
             --failOnCVSS 4 \
-            $UPDATE_FLAG
+            --noupdate
 
       - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
         run: |
