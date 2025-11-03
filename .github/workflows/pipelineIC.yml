@@ -142,12 +142,21 @@ jobs:
       - name: Ejecutar Dependency-Check (HTML + JSON)
         run: |
           mkdir -p reports
+          
+          if [ -d "$HOME/.dependency-check/data" ]; then
+            echo "Base de datos encontrada, ejecutando con --noupdate."
+            UPDATE_FLAG="--noupdate"
+          else
+            echo "No se encontró base de datos local, ejecutando actualización completa."
+            UPDATE_FLAG=""
+          fi
+
           ./dependency-check/dependency-check/bin/dependency-check.sh \
             --project "${{ github.event.repository.name }}" \
             --scan "." \
             --format "ALL" \
             --out "reports" \
-            --noupdate \
+            $UPDATE_FLAG \
             --enableRetired \
             --failOnCVSS 4
 
