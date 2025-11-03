@@ -115,62 +115,62 @@ jobs:
             fi
 
   SCA:
-  needs: SAST
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout del código
-      uses: actions/checkout@v3
+    needs: SAST
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
 
-    - name: Instalar dependencias requeridas
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y jq unzip wget
+      - name: Instalar dependencias requeridas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq unzip wget
 
-    - name: Instalar OWASP Dependency-Check CLI
-      run: |
-        echo "Instalando OWASP Dependency-Check..."
-        wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.2/dependency-check-10.0.2-release.zip
-        unzip dependency-check-10.0.2-release.zip -d dependency-check
-        chmod +x dependency-check/bin/dependency-check.sh
+      - name: Instalar OWASP Dependency-Check CLI
+        run: |
+          echo "Instalando OWASP Dependency-Check..."
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.2/dependency-check-10.0.2-release.zip
+          unzip dependency-check-10.0.2-release.zip -d dependency-check
+          chmod +x dependency-check/bin/dependency-check.sh
 
-    - name: Ejecutar Dependency-Check (HTML y JSON)
-      run: |
-        mkdir -p reports
-        ./dependency-check/bin/dependency-check.sh \
-          --project "${{ github.event.repository.name }}" \
-          --scan "." \
-          --format "ALL" \
-          --out "reports" \
-          --enableRetired \
-          --failOnCVSS 4
+      - name: Ejecutar Dependency-Check (HTML y JSON)
+        run: |
+          mkdir -p reports
+          ./dependency-check/bin/dependency-check.sh \
+            --project "${{ github.event.repository.name }}" \
+            --scan "." \
+            --format "ALL" \
+            --out "reports" \
+            --enableRetired \
+            --failOnCVSS 4
 
-    - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
-      run: |
-        echo "Analizando vulnerabilidades del reporte JSON..."
+      - name: Analizar vulnerabilidades detectadas (CVSS >= 4)
+        run: |
+          echo "Analizando vulnerabilidades del reporte JSON..."
 
-        REPORT_JSON="reports/dependency-check-report.json"
+          REPORT_JSON="reports/dependency-check-report.json"
 
-        if [ ! -f "$REPORT_JSON" ]; then
-          echo "No se encontró el reporte JSON en $REPORT_JSON"
-          echo "Archivos disponibles:"
-          ls -l reports
-          exit 1
-        fi
+          if [ ! -f "$REPORT_JSON" ]; then
+            echo "No se encontró el reporte JSON en $REPORT_JSON"
+            echo "Archivos disponibles:"
+            ls -l reports
+            exit 1
+          fi
 
-        COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 4)] | length' "$REPORT_JSON")
+          COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 4)] | length' "$REPORT_JSON")
 
-        echo "Vulnerabilidades con CVSS >= 4 detectadas: $COUNT"
+          echo "Vulnerabilidades con CVSS >= 4 detectadas: $COUNT"
 
-        if [ "$COUNT" -gt 0 ]; then
-          echo "Se encontraron vulnerabilidades medias, altas o críticas. Quebrando el pipeline."
-          exit 1
-        else
-          echo "No se encontraron vulnerabilidades medias, altas o críticas."
-        fi
+          if [ "$COUNT" -gt 0 ]; then
+            echo "Se encontraron vulnerabilidades medias, altas o críticas. Quebrando el pipeline."
+            exit 1
+          else
+            echo "No se encontraron vulnerabilidades medias, altas o críticas."
+          fi
 
-    - name: Subir reportes como artefacto
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: DependencyCheck-Reports
-        path: reports
+      - name: Subir reportes como artefacto
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DependencyCheck-Reports
+          path: reports
