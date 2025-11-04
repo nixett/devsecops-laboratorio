@@ -209,6 +209,7 @@ jobs:
             --format table \
             --pkg-types os,library \
             --severity CRITICAL,HIGH \
+            # --exit-code 1 \
             $LATEST_IMAGE
 
       - name: Generar reporte detallado en JSON
