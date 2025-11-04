@@ -172,20 +172,20 @@ jobs:
     needs: SCA
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout del código
         uses: actions/checkout@v3
 
-      - name: Build Docker Image
+      - name: Build de la imagen Docker
         run: |
           docker build \
             --tag ${{ secrets.DOCKER_USER }}/devsecops-laboratorio:${{ github.run_number }} \
             --tag ${{ secrets.DOCKER_USER }}/devsecops-laboratorio:latest .
 
-      - name: Login to DockerHub
+      - name: Login en DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push to DockerHub
+      - name: Subir imagen a DockerHub
         run: docker push ${{ secrets.DOCKER_USER }}/devsecops-laboratorio:latest
