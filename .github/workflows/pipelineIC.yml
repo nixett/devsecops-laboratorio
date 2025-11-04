@@ -175,6 +175,12 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v3
 
+      - name: Login en DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Build de la imagen Docker
         run: |
           docker build \
@@ -189,11 +195,11 @@ jobs:
 
       - name: Escaneo de vulnerabilidades con Trivy
         run: |
-          echo "Analizando la imagen local devsecops-laboratorio:latest..."
-          trivy image --format table --vuln-type os,library --severity CRITICAL,HIGH --exit-code 1 devsecops-laboratorio:latest
+          echo "Analizando la imagen nixett/devsecops-laboratorio:latest..."
+          trivy image --format table --pkg-types os,library --severity CRITICAL,HIGH --exit-code 1 nixett/devsecops-laboratorio:latest
 
       - name: Generar reporte detallado en JSON
-        run: trivy image --format json --output trivy-report.json devsecops-laboratorio:latest
+        run: trivy image --format json --output trivy-report.json nixett/devsecops-laboratorio:latest
 
       - name: Subir reporte como artefacto
         uses: actions/upload-artifact@v4
@@ -201,11 +207,5 @@ jobs:
           name: Trivy-Report
           path: trivy-report.json
 
-      - name: Login en DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Subir imagen a DockerHub
-        run: docker push ${{ secrets.DOCKER_USER }}/devsecops-laboratorio:latest
+        run: docker push nixett/devsecops-laboratorio:latest
